@@ -18,7 +18,18 @@
   let selectedCard  = null;
 
   window.initAuthors = function () {
-    if (cardList && cardList.children.length > 0) return; // already initialised
+    // Full reset — clear all previous data and DOM
+    authorMap    = {};
+    currentTests  = [];
+    filteredDrill = [];
+    selectedCard  = null;
+    cardList.innerHTML    = '';
+    drillLeft.innerHTML   = '';
+    chartSection.innerHTML = '';
+    rightTitle.textContent = 'Select an author';
+    rightControls.style.display = 'none';
+    showNoSelection(drillRight);
+    
     const { tests } = window.REPORT;
     authorMap = {};
     tests.forEach(t => {
