@@ -18,7 +18,18 @@
   let selectedCard  = null;
 
   window.initTags = function () {
-    if (cardList && cardList.children.length > 0) return; // already initialised
+    // Full reset — clear all previous data and DOM
+    tagMap        = {};
+    currentTests  = [];
+    filteredDrill = [];
+    selectedCard  = null;
+    cardList.innerHTML     = '';
+    drillLeft.innerHTML    = '';
+    chartSection.innerHTML = '';
+    rightTitle.textContent = 'Select a tag';
+    rightControls.style.display = 'none';
+    showNoSelection(drillRight);
+    
     const { tests } = window.REPORT;
     tagMap = {};
     tests.forEach(t => {
