@@ -1,6 +1,6 @@
 # 📊 Extent Report Viewer
 
-A beautiful, fully client-side dashboard for viewing **ExtentReport HTML files** — with real search, filters, and scrollable step details. No server, no dependencies, no install.
+A production-ready, fully client-side dashboard for viewing **ExtentReport HTML files** — with a 4-tab interface, split-pane test detail, author/tag drill-down, categorized failure analysis, and CSV export. No server, no dependencies, no install.
 
 ![HTML](https://img.shields.io/badge/HTML-5-orange?logo=html5&logoColor=white)
 ![CSS](https://img.shields.io/badge/CSS-3-blue?logo=css3&logoColor=white)
@@ -13,7 +13,7 @@ A beautiful, fully client-side dashboard for viewing **ExtentReport HTML files**
 
 1. Clone or download this repo
 2. Open `index.html` in any modern browser
-3. Upload your `ExtentReport.html` file — done
+3. Upload your `ExtentReport.html` — done
 
 ```bash
 git clone https://github.com/your-username/extent-report-viewer.git
@@ -21,51 +21,22 @@ cd extent-report-viewer
 # Open index.html in your browser
 ```
 
-> No build step. No npm install. No server required.
+> No build step. No npm install. No server required. Works entirely in the browser.
 
 ---
 
-## ✨ Features
+## ✨ Features at a Glance
 
-### 📁 File Upload
-- Click **Choose File** or **drag & drop** your ExtentReport HTML onto the upload zone
-- Load a different file anytime with the **↩ Load Another File** button
-
-### 📈 Summary Cards
-- Instant counts for **Total**, **Pass**, **Fail**, and **Skip**
-- Click any card to filter the list by that status — click again to clear
-
-### 🔍 Search & Filters
-| Filter | Description |
-|--------|-------------|
-| **Search** | Searches test names AND step detail text — matches highlighted in yellow |
-| **Status** | Filter by Pass / Fail / Skip |
-| **Author** | Filter by test author (dynamically populated from the report) |
-| **Tag** | Filter by regression tag (dynamically populated from the report) |
-| **Reset** | Clears all active filters at once |
-
-Live result count always shows how many tests match your current filters.
-
-### 🧪 Test Cards
-- Color-coded left border — 🔴 Fail · 🟢 Pass · 🟡 Skip
-- Shows: status badge, test name, author, tag, start time, duration
-- Click any card to **expand / collapse** the full step log
-
-### 📋 Step Details Panel
-- Per-step status badge (Pass / Fail / Skip / Info)
-- Timestamp for each step
-- Full detail text with stack traces rendered in a scrollable code block
-- Search term highlights carry through into step details
-
----
-
-## 🖼️ Screenshots
-
-### Upload Screen
-> Drag & drop or click to upload your ExtentReport HTML file.
-
-### Dashboard View
-> Summary cards, filter bar, and scrollable test list with expandable steps.
+| Feature | Description |
+|---------|-------------|
+| File upload | Click or drag & drop any ExtentReport HTML |
+| Accurate counts | Total / Pass / Fail / Skip — scoped strictly to test items, never inflated by sidebar data |
+| 4-tab navigation | Tests · Authors · Tags/Categories · Failures |
+| Frozen header | Top bar and tab row always visible while scrolling |
+| Split-pane detail | Test list on the left, step details on the right — header frozen, steps scrollable |
+| Author stats bar | Selecting an author in Tests shows their pass/fail/skip summary inline |
+| CSV export | Export currently filtered results from any tab |
+| Search | Searches test names and step detail text with yellow highlights |
 
 ---
 
@@ -73,31 +44,142 @@ Live result count always shows how many tests match your current filters.
 
 ```
 extent-report-viewer/
-├── index.html              # Main app — upload screen + full dashboard
+├── index.html                  # App shell — upload screen + all 4 pages
 ├── assets/
 │   ├── css/
-│   │   └── style.css       # Legacy styles (unused by main app)
-│   ├── js/
-│   │   └── dashboard.js    # Legacy script (unused by main app)
-│   └── sample-report.html  # Sample ExtentReport for testing
+│   │   └── style.css           # All shared styles (dark theme, layout, components)
+│   └── js/
+│       ├── parser.js           # Parses ExtentReport HTML once; shared helpers
+│       ├── dashboard.js        # 🧪 Tests tab
+│       ├── authors.js          # 👤 Authors tab
+│       ├── tags.js             # 🏷 Tags / Categories tab
+│       └── bugs.js             # ⚠️ Failures tab
+├── ExtendsReport.html          # Sample ExtentReport for testing
 ├── templates/
-│   └── dashboard.html      # Jinja2 template for Python pipeline
-├── build_dashboard.py      # Optional Python pipeline (BeautifulSoup + Plotly)
-├── ExtendsReport.html      # Sample report (not committed in production)
+│   └── dashboard.html          # Jinja2 template (optional Python pipeline)
+├── build_dashboard.py          # Optional Python pipeline (BeautifulSoup + Plotly)
 └── README.md
 ```
 
-> The entire viewer lives in `index.html` — no external CSS or JS files needed.
+---
+
+## 📑 Tab Reference
+
+### 🧪 Tests
+
+The main test list view.
+
+- **Summary cards** — Total / Pass / Fail / Skip counts. Click any card to filter by that status; click again to clear.
+- **Filter bar** (always frozen at top):
+  - Free-text search across test names and step detail text
+  - Status dropdown (All / Pass / Fail / Skip)
+  - Author dropdown (dynamically populated)
+  - Tag dropdown (dynamically populated)
+  - Reset button — clears all filters at once
+  - Export CSV — downloads the currently filtered test list
+- **Author stats bar** — appears below the filter bar when an author is selected, showing their total pass / fail / skip counts and pass rate
+- **Split-pane layout**:
+  - Left pane — scrollable test list; each row shows status badge, test name, author chip, tag chip
+  - Right pane — click any test to load its full step log; the test name + status/author/tag/time header is frozen at the top while steps scroll below
+
+---
+
+### 👤 Authors
+
+3-column layout — all columns always visible, no page navigation required.
+
+| Column | Content |
+|--------|---------|
+| Left (260px) | SVG pie chart showing overall pass/fail/skip with legend — always visible |
+| Middle (300px) | Scrollable list of author cards — each shows total, pass ✓, fail ✗, skip ⊘, and a pass-rate progress bar |
+| Right | Click an author card to load their tests here. Splits into a test list (left) and step detail (right). Includes search and status filter. |
+
+- Clicking a test row in the right pane opens its frozen-header step detail
+- Export CSV exports the currently filtered tests for the selected author
+
+---
+
+### 🏷 Tags / Categories
+
+Identical 3-column layout to Authors, grouped by regression tag instead of author.
+
+| Column | Content |
+|--------|---------|
+| Left (260px) | SVG pie chart — always visible |
+| Middle (300px) | Scrollable tag cards with pass/fail/skip counts and pass-rate bar |
+| Right | Click a tag card to load its tests; test list + step detail split pane with search and status filter |
+
+- Tests with no tag are excluded from this view
+- Export CSV exports the currently filtered tests for the selected tag
+
+---
+
+### ⚠️ Failures
+
+Focused view of all failed tests, categorized by exception type.
+
+- **Filter bar** (frozen):
+  - Free-text search by test name, error message, or author
+  - Category dropdown — dynamically populated from detected exception types (e.g. `HttpTimeoutException`, `NoSuchElementException`, `TimeoutException`)
+  - Grid / List view toggle
+  - Export CSV
+- **Left pane** — collapsible category groups (▶ click to expand). Each item shows test name, author chip, tag chip, and the first line of the error message. Click any item to load its step detail on the right.
+- **Right pane** — frozen test header + scrollable step log (same as Tests tab)
+- **Grid mode** — adds summary cards per exception category above the collapsible list
+
+**Exception categories detected automatically:**
+- `HttpTimeoutException` / `TimeoutException` / `TimeoutError`
+- `NoSuchElementException`
+- `StaleElementException`
+- `AssertionError`
+- Any other `*Exception` or `*Error` class name extracted from the stack trace
+- `OtherFailure` — fallback for unrecognised errors
 
 ---
 
 ## 🔧 How It Works
 
 1. User uploads an ExtentReport HTML file via file picker or drag & drop
-2. The file is read client-side using the `FileReader` API — **nothing is sent to any server**
-3. The HTML is parsed with `DOMParser`, extracting every `li.test-item` element
-4. Test name, status, author, tag, duration, and all step rows are pulled from the DOM
-5. The dashboard renders dynamically — all filtering and search happens in memory
+2. `FileReader` reads the file client-side — **nothing is sent to any server**
+3. `parser.js` uses `DOMParser` to parse the HTML, scoping strictly to `.test-list-wrapper ul.test-list-item > li.test-item` — this prevents sidebar author/tag dropdown items from being counted as tests
+4. Each `li.test-item` yields: name, status, author, tag, start time, duration, and all step rows
+5. `window.REPORT` is set once; all 4 tabs read from it — no re-parsing on tab switch
+6. The Tests tab initialises immediately on load; Authors, Tags, and Failures initialise via `requestIdleCallback` so the UI is responsive from the first frame
+
+---
+
+## 📐 Layout Architecture
+
+```
+body (flex column, 100vh, overflow hidden)
+└── #appShell (flex column)
+    ├── .frozen-top          ← topbar + nav tabs, always visible
+    └── .page.active         ← one of four pages, flex column
+        ├── .page-controls   ← summary cards + filter bar, sticky
+        └── content area     ← split-pane or 3-column group layout
+```
+
+**Split-pane (Tests & Failures):**
+```
+.split-pane (flex row, flex:1, min-height:0)
+├── .split-left   (fixed width, overflow-y:auto)   ← test list
+└── .split-right  (flex:1, flex column)
+    ├── .split-right-header  (frozen — test name + chips)
+    └── .split-right-body    (overflow-y:auto — steps table)
+```
+
+**3-column group layout (Authors & Tags):**
+```
+.group-page-layout (flex row, flex:1, min-height:0)
+├── .group-page-left    (260px) ← pie chart, always visible
+├── .group-page-middle  (300px) ← scrollable cards
+└── .group-page-right   (flex:1)
+    ├── .group-right-title    (frozen label)
+    ├── .group-right-controls (search + filter, shown after card click)
+    └── .group-right-split    (flex row)
+        ├── .group-right-list   (260px, overflow-y:auto) ← test rows
+        └── .group-right-detail (flex:1)                 ← step detail
+```
 
 ---
 
