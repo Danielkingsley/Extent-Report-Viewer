@@ -16,7 +16,7 @@ A production-ready, fully client-side dashboard for viewing **ExtentReport HTML 
 3. Upload your `ExtentReport.html` — done
 
 ```bash
-git clone https://github.com/your-username/extent-report-viewer.git
+git clone https://github.com/Danielkingsley/Extent-Report-Viewer.git
 cd extent-report-viewer
 # Open index.html in your browser
 ```
@@ -55,9 +55,6 @@ extent-report-viewer/
 │       ├── tags.js             # 🏷 Tags / Categories tab
 │       └── bugs.js             # ⚠️ Failures tab
 ├── ExtendsReport.html          # Sample ExtentReport for testing
-├── templates/
-│   └── dashboard.html          # Jinja2 template (optional Python pipeline)
-├── build_dashboard.py          # Optional Python pipeline (BeautifulSoup + Plotly)
 └── README.md
 ```
 
