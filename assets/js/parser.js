@@ -29,7 +29,10 @@ window.parseReport = function (html, filename) {
       const ts         = cells[1]?.textContent.trim() || '';
       const textarea   = cells[2].querySelector('textarea');
       const detail     = textarea ? textarea.value.trim() : cells[2]?.textContent.trim() || '';
-      steps.push({ stepStatus, ts, detail, hasCode: !!textarea });
+      // Extract screenshot filename if present
+      const imgEl      = cells[2].querySelector('img[src]');
+      const screenshot = imgEl ? imgEl.getAttribute('src').split('/').pop() : null;
+      steps.push({ stepStatus, ts, detail, hasCode: !!textarea, screenshot });
     });
 
     tests.push({ name, status, author, tag, time, duration, steps });
@@ -134,10 +137,13 @@ window.renderDetail = function (container, t, q) {
         const d = s.hasCode
           ? `<div class="step-detail">${hlText(escHtml(s.detail.split('\n')[0]), q)}<pre>${escHtml(s.detail)}</pre></div>`
           : `<div class="step-detail">${hlText(escHtml(s.detail), q)}</div>`;
+        const screenshotHtml = s.screenshot && window.SCREENSHOTS && window.SCREENSHOTS[s.screenshot]
+          ? `<div class="step-screenshot"><img src="${window.SCREENSHOTS[s.screenshot]}" loading="lazy" alt="screenshot" onclick="window.openScreenshot(this.src)"></div>`
+          : '';
         return `<tr>
           <td><span class="step-badge ${s.stepStatus}">${s.stepStatus||'—'}</span></td>
           <td style="color:var(--muted);font-size:.72rem;white-space:nowrap">${s.ts}</td>
-          <td>${d}</td>
+          <td>${d}${screenshotHtml}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>` : `<p style="padding:16px;color:var(--muted);font-size:.82rem">No step details available.</p>`;
