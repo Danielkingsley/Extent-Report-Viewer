@@ -125,6 +125,18 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color:
 .step-detail { color: var(--text); line-height: 1.5; word-break: break-word; }
 .step-detail pre { background: #0a1120; border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.72rem; white-space: pre-wrap; color: #fca5a5; margin-top: 4px; max-height: 200px; overflow-y: auto; }
 
+/* screenshot thumbnail in step detail */
+.step-screenshot { margin-top: 6px; }
+.step-screenshot img { max-width: 260px; max-height: 160px; border-radius: 6px; border: 1px solid var(--border); cursor: zoom-in; transition: opacity .15s; display: block; }
+.step-screenshot img:hover { opacity: .85; }
+
+/* lightbox overlay */
+#screenshotOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; }
+#screenshotOverlay.open { display: flex; }
+#screenshotOverlay img { max-width: 92vw; max-height: 88vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+#screenshotOverlay .close-btn { position: absolute; top: 16px; right: 20px; color: #fff; font-size: 1.6rem; cursor: pointer; line-height: 1; opacity: .7; }
+#screenshotOverlay .close-btn:hover { opacity: 1; }
+
 /* chips */
 .chip { font-size: 0.68rem; padding: 2px 7px; border-radius: 12px; background: rgba(255,255,255,.06); color: var(--muted); white-space: nowrap; }
 .chip.author { color: #a78bfa; background: rgba(167,139,250,.1); }
