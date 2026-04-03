@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extent Report Viewer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --pass: #22c55e;
+    --fail: #ef4444;
+    --skip: #f59e0b;
+    --info: #64748b;
+    --radius: 10px;
+  }
+
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── UPLOAD SCREEN ── */
+  #uploadScreen {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  }
+  #uploadScreen h1 { font-size: 1.8rem; color: var(--accent); }
+  #uploadScreen p { color: var(--muted); font-size: 0.95rem; }
+  .drop-zone {
+    width: 480px; max-width: 90vw; border: 2px dashed var(--border); border-radius: 16px;
+    padding: 48px 32px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(56,189,248,.05); }
+  .drop-zone svg { width: 56px; height: 56px; color: var(--muted); margin-bottom: 16px; }
+  .drop-zone p { color: var(--muted); margin-top: 8px; font-size: 0.85rem; }
+  .btn-upload {
+    display: inline-block; background: var(--accent); color: #0f172a; font-weight: 700;
+    padding: 10px 28px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: background .2s;
+  }
+  .btn-upload:hover { background: #7dd3fc; }
+  #fileInput { display: none; }
+
+  /* ── DASHBOARD ── */
+  #dashboard { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+
+  /* top bar */
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; margin-right: 4px; }
+  .topbar .run-meta { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .btn-change { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: border-color .2s; }
+  .btn-change:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* summary cards */
+  .summary {
+    display: flex; gap: 12px; padding: 14px 20px; flex-shrink: 0; flex-wrap: wrap;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .card {
+    background: var(--surface); border-radius: var(--radius); padding: 12px 20px;
+    min-width: 110px; text-align: center; border: 1px solid var(--border); cursor: pointer;
+    transition: border-color .2s, transform .15s; user-select: none;
+  }
+  .card:hover { transform: translateY(-2px); }
+  .card.active { border-color: var(--accent); }
+  .card .num { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+  .card .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
+  .card.total .num { color: var(--accent); }
+  .card.pass  .num { color: var(--pass); }
+  .card.fail  .num { color: var(--fail); }
+  .card.skip  .num { color: var(--skip); }
+
+  /* filter bar */
+  .filterbar {
+    display: flex; gap: 10px; padding: 10px 20px; flex-shrink: 0; flex-wrap: wrap;
+    background: var(--bg); border-bottom: 1px solid var(--border); align-items: center;
+  }
+  .filterbar input[type=text] {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 12px; border-radius: 7px; font-size: 0.85rem; width: 220px; outline: none;
+    transition: border-color .2s;
+  }
+  .filterbar input[type=text]:focus { border-color: var(--accent); }
+  .filterbar select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 7px; font-size: 0.85rem; outline: none; cursor: pointer;
+    transition: border-color .2s;
+  }
+  .filterbar select:focus { border-color: var(--accent); }
+  .btn-reset {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 0.82rem; transition: all .2s;
+  }
+  .btn-reset:hover { border-color: var(--fail); color: var(--fail); }
+  .result-count { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
+  /* test list */
+  .list-area { flex: 1; overflow-y: auto; padding: 14px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+  .test-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; transition: border-color .2s;
+  }
+  .test-card:hover { border-color: #475569; }
+  .test-card.status-fail { border-left: 4px solid var(--fail); }
+  .test-card.status-pass { border-left: 4px solid var(--pass); }
+  .test-card.status-skip { border-left: 4px solid var(--skip); }
+
+  .test-header {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer;
+  }
+  .test-header:hover { background: rgba(255,255,255,.03); }
+  .badge-status {
+    font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-status.fail { background: rgba(239,68,68,.15); color: var(--fail); }
+  .badge-status.pass { background: rgba(34,197,94,.15); color: var(--pass); }
+  .badge-status.skip { background: rgba(245,158,11,.15); color: var(--skip); }
+
+  .test-name { font-weight: 600; font-size: 0.92rem; flex: 1; }
+  .test-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;
+    background: rgba(255,255,255,.06); color: var(--muted); white-space: nowrap;
+  }
+  .chip.author { color: #a78bfa; background: rgba(167,139,250,.1); }
+  .chip.tag    { color: #34d399; background: rgba(52,211,153,.1); }
+  .chip.dur    { color: var(--muted); }
+  .chevron { color: var(--muted); font-size: 0.75rem; transition: transform .2s; flex-shrink: 0; }
+  .test-card.open .chevron { transform: rotate(180deg); }
+
+  /* steps panel */
+  .steps-panel { display: none; border-top: 1px solid var(--border); overflow-x: auto; }
+  .test-card.open .steps-panel { display: block; }
+  .steps-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .steps-table th { background: rgba(255,255,255,.04); color: var(--muted); padding: 7px 14px; text-align: left; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
+  .steps-table td { padding: 7px 14px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+  .steps-table tr:last-child td { border-bottom: none; }
+  .step-badge { font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; white-space: nowrap; }
+  .step-badge.fail { background: rgba(239,68,68,.15); color: var(--fail); }
+  .step-badge.pass { background: rgba(34,197,94,.15); color: var(--pass); }
+  .step-badge.skip { background: rgba(245,158,11,.15); color: var(--skip); }
+  .step-badge.info { background: rgba(100,116,139,.15); color: var(--info); }
+  .step-detail { color: var(--text); line-height: 1.5; word-break: break-word; }
+  .step-detail pre { background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; color: #fca5a5; margin-top: 6px; max-height: 200px; overflow-y: auto; }
+
+  /* empty state */
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: .4; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── UPLOAD SCREEN ── -->
+<div id="uploadScreen">
+  <h1>📊 Extent Report Viewer</h1>
+  <p>Upload any ExtentReport HTML file to view a beautiful, searchable dashboard</p>
+  <label class="drop-zone" id="dropZone" for="fileInput">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+        d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
+    </svg>
+    <span class="btn-upload">📂 Choose File</span>
+    <p>or drag &amp; drop your ExtentReport.html here</p>
+  </label>
+  <input type="file" id="fileInput" accept=".html,.htm">
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div id="dashboard">
+  <!-- top bar -->
+  <div class="topbar">
+    <h1>📊 Extent Report Viewer</h1>
+    <span class="run-meta" id="runMeta"></span>
+    <div class="spacer"></div>
+    <button class="btn-change" id="btnChange">↩ Load Another File</button>
+  </div>
+
+  <!-- summary cards -->
+  <div class="summary">
+    <div class="card total" data-filter-status="" id="cardTotal">
+      <div class="num" id="numTotal">0</div><div class="lbl">Total</div>
+    </div>
+    <div class="card pass" data-filter-status="pass" id="cardPass">
+      <div class="num" id="numPass">0</div><div class="lbl">Pass</div>
+    </div>
+    <div class="card fail" data-filter-status="fail" id="cardFail">
+      <div class="num" id="numFail">0</div><div class="lbl">Fail</div>
+    </div>
+    <div class="card skip" data-filter-status="skip" id="cardSkip">
+      <div class="num" id="numSkip">0</div><div class="lbl">Skip</div>
+    </div>
+  </div>
+
+  <!-- filter bar -->
+  <div class="filterbar">
+    <input type="text" id="searchInput" placeholder="🔍  Search test name or error…">
+    <select id="filterStatus">
+      <option value="">All Statuses</option>
+      <option value="pass">Pass</option>
+      <option value="fail">Fail</option>
+      <option value="skip">Skip</option>
+    </select>
+    <select id="filterAuthor"><option value="">All Authors</option></select>
+    <select id="filterTag"><option value="">All Tags</option></select>
+    <button class="btn-reset" id="btnReset">✕ Reset</button>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+
+  <!-- test list -->
+  <div class="list-area" id="listArea"></div>
+</div>
+
+<script>
+  const uploadScreen = document.getElementById('uploadScreen');
+  const dashboard    = document.getElementById('dashboard');
+  const fileInput    = document.getElementById('fileInput');
+  const dropZone     = document.getElementById('dropZone');
+  const btnChange    = document.getElementById('btnChange');
+  const runMeta      = document.getElementById('runMeta');
+  const listArea     = document.getElementById('listArea');
+  const searchInput  = document.getElementById('searchInput');
+  const filterStatus = document.getElementById('filterStatus');
+  const filterAuthor = document.getElementById('filterAuthor');
+  const filterTag    = document.getElementById('filterTag');
+  const btnReset     = document.getElementById('btnReset');
+  const resultCount  = document.getElementById('resultCount');
+
+  let allTests = [];
+  let activeStatusCard = '';
+
+  // ── FILE LOADING ──
+  fileInput.addEventListener('change', () => fileInput.files[0] && loadFile(fileInput.files[0]));
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]); });
+  btnChange.addEventListener('click', () => { uploadScreen.style.display = 'flex'; dashboard.style.display = 'none'; fileInput.value = ''; });
+
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => parseReport(e.target.result, file.name);
+    reader.readAsText(file);
+  }
+
+  // ── PARSE ──
+  function parseReport(html, filename) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // run meta
+    const badges = doc.querySelectorAll('.nav-right .badge-primary');
+    const metaParts = Array.from(badges).map(b => b.textContent.trim());
+    runMeta.textContent = metaParts.join('  ·  ') || filename;
+
+    // tests
+    allTests = [];
+    doc.querySelectorAll('li.test-item').forEach(li => {
+      const name     = li.querySelector('.name')?.textContent.trim() || '—';
+      const status   = (li.getAttribute('status') || 'unknown').toLowerCase();
+      const author   = li.getAttribute('author') || 'Unknown';
+      const tag      = li.getAttribute('tag') || '';
+      const spans    = li.querySelectorAll('.text-sm span');
+      const time     = spans[0]?.textContent.trim() || '';
+      const duration = spans[1]?.textContent.trim() || '';
+
+      // steps
+      const steps = [];
+      li.querySelectorAll('.event-row').forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 3) return;
+        const stepStatus = cells[0].querySelector('.badge')?.textContent.trim().toLowerCase() || '';
+        const ts         = cells[1]?.textContent.trim() || '';
+        const textarea   = cells[2].querySelector('textarea');
+        const detail     = textarea ? textarea.value.trim() : cells[2]?.textContent.trim() || '';
+        steps.push({ stepStatus, ts, detail, hasCode: !!textarea });
+      });
+
+      allTests.push({ name, status, author, tag, time, duration, steps });
+    });
+
+    // populate selects
+    populateSelect(filterAuthor, [...new Set(allTests.map(t => t.author).filter(Boolean))].sort(), 'All Authors');
+    populateSelect(filterTag,    [...new Set(allTests.map(t => t.tag).filter(Boolean))].sort(),    'All Tags');
+
+    // counts
+    updateCounts();
+
+    // show dashboard
+    uploadScreen.style.display = 'none';
+    dashboard.style.display = 'flex';
+    activeStatusCard = '';
+    applyFilters();
+  }
+
+  function populateSelect(sel, values, placeholder) {
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    values.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+  }
+
+  function updateCounts() {
+    document.getElementById('numTotal').textContent = allTests.length;
+    document.getElementById('numPass').textContent  = allTests.filter(t => t.status === 'pass').length;
+    document.getElementById('numFail').textContent  = allTests.filter(t => t.status === 'fail').length;
+    document.getElementById('numSkip').textContent  = allTests.filter(t => t.status === 'skip').length;
+  }
+
+  // ── FILTERS ──
+  searchInput.addEventListener('input', applyFilters);
+  filterStatus.addEventListener('change', () => { activeStatusCard = ''; highlightCard(); applyFilters(); });
+  filterAuthor.addEventListener('change', applyFilters);
+  filterTag.addEventListener('change', applyFilters);
+  btnReset.addEventListener('click', () => {
+    searchInput.value = ''; filterStatus.value = ''; filterAuthor.value = ''; filterTag.value = '';
+    activeStatusCard = ''; highlightCard(); applyFilters();
+  });
+
+  // card clicks
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => {
+      const s = card.dataset.filterStatus;
+      if (activeStatusCard === s) { activeStatusCard = ''; filterStatus.value = ''; }
+      else { activeStatusCard = s; filterStatus.value = s; }
+      highlightCard();
+      applyFilters();
+    });
+  });
+
+  function highlightCard() {
+    document.querySelectorAll('.card').forEach(c => c.classList.toggle('active', c.dataset.filterStatus === activeStatusCard && activeStatusCard !== ''));
+  }
+
+  function applyFilters() {
+    const q      = searchInput.value.toLowerCase().trim();
+    const status = filterStatus.value.toLowerCase();
+    const author = filterAuthor.value;
+    const tag    = filterTag.value;
+
+    const filtered = allTests.filter(t => {
+      if (status && t.status !== status) return false;
+      if (author && t.author !== author) return false;
+      if (tag    && t.tag    !== tag)    return false;
+      if (q) {
+        const inName  = t.name.toLowerCase().includes(q);
+        const inSteps = t.steps.some(s => s.detail.toLowerCase().includes(q));
+        if (!inName && !inSteps) return false;
+      }
+      return true;
+    });
+
+    resultCount.textContent = `${filtered.length} of ${allTests.length} tests`;
+    renderList(filtered, q);
+  }
+
+  // ── RENDER ──
+  function renderList(tests, highlight) {
+    if (!tests.length) {
+      listArea.innerHTML = `<div class="empty"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p>No tests match your filters.</p></div>`;
+      return;
+    }
+
+    listArea.innerHTML = '';
+    tests.forEach((t, i) => {
+      const card = document.createElement('div');
+      card.className = `test-card status-${t.status}`;
+
+      const header = document.createElement('div');
+      header.className = 'test-header';
+      header.innerHTML = `
+        <span class="badge-status ${t.status}">${t.status}</span>
+        <span class="test-name">${hl(t.name, highlight)}</span>
+        <div class="test-meta">
+          ${t.author ? `<span class="chip author">👤 ${t.author}</span>` : ''}
+          ${t.tag    ? `<span class="chip tag">🏷 ${t.tag}</span>` : ''}
+          ${t.time   ? `<span class="chip dur">⏱ ${t.time}</span>` : ''}
+          ${t.duration ? `<span class="chip dur">${t.duration}</span>` : ''}
+        </div>
+        <span class="chevron">▼</span>`;
+
+      const panel = document.createElement('div');
+      panel.className = 'steps-panel';
+
+      if (t.steps.length) {
+        const table = document.createElement('table');
+        table.className = 'steps-table';
+        table.innerHTML = `<thead><tr><th style="width:80px">Status</th><th style="width:90px">Time</th><th>Details</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        t.steps.forEach(s => {
+          const tr = document.createElement('tr');
+          const detailHtml = s.hasCode
+            ? `<div class="step-detail">${hl(s.detail.split('\n')[0], highlight)}<pre>${escHtml(s.detail)}</pre></div>`
+            : `<div class="step-detail">${hl(escHtml(s.detail), highlight)}</div>`;
+          tr.innerHTML = `<td><span class="step-badge ${s.stepStatus}">${s.stepStatus || '—'}</span></td><td style="color:var(--muted);font-size:.78rem">${s.ts}</td><td>${detailHtml}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        panel.appendChild(table);
+      } else {
+        panel.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:.82rem">No step details available.</div>`;
+      }
+
+      header.addEventListener('click', () => card.classList.toggle('open'));
+      card.appendChild(header);
+      card.appendChild(panel);
+      listArea.appendChild(card);
+    });
+  }
+
+  function hl(text, q) {
+    if (!q) return text;
+    const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(re, '<mark style="background:#fbbf24;color:#0f172a;border-radius:2px">$1</mark>');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
