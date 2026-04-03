@@ -24,7 +24,16 @@
   }
 
   window.initBugs = function () {
-    if (allBugs.length > 0) return; // already initialised
+    // Full reset — clear previous data and DOM
+    allBugs = [];
+    failLeft.innerHTML  = '';
+    failRight.innerHTML = '';
+    bugSearch.value     = '';
+    bugFilter.value     = '';
+    bugFilter.innerHTML = '<option value="">All Categories</option>';
+    bugCount.textContent = '';
+    showNoSelection();
+    
     const { tests } = window.REPORT;
     allBugs = [];
     tests.forEach(t => {
