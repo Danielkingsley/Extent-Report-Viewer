@@ -28,6 +28,17 @@
   window.initDashboard = function () {
     const { tests } = window.REPORT;
 
+    // Reset filters and DOM
+    searchInput.value  = '';
+    filterStatus.value = '';
+    filterAuthor.value = '';
+    filterTag.value    = '';
+    activeStatusCard   = '';
+    selectedIndex      = -1;
+    splitLeft.innerHTML  = '';
+    authorStatsBar.classList.remove('visible');
+    showNoSelection();
+
     document.getElementById('numTotal').textContent = tests.length;
     document.getElementById('numPass').textContent  = tests.filter(t => t.status === 'pass').length;
     document.getElementById('numFail').textContent  = tests.filter(t => t.status === 'fail').length;
