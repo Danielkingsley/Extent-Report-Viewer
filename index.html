@@ -220,25 +220,28 @@
   btnChange.addEventListener('click', () => { uploadScreen.style.display = 'flex'; appShell.style.display = 'none'; fileInput.value = ''; });
 
   function loadFile(file) {
+    // Reset tab init state for fresh load
+    Object.keys(tabInitDone).forEach(k => delete tabInitDone[k]);
     const reader = new FileReader();
     reader.onload = e => {
       const report = window.parseReport(e.target.result, file.name);
       runMeta.textContent = report.meta;
       uploadScreen.style.display = 'none';
       appShell.style.display = 'flex';
-      // Init Tests immediately so first paint is fast
       window.initDashboard();
-      // Init remaining tabs on next tick — REPORT is already set, no race condition
       setTimeout(() => {
         window.initAuthors();
         window.initTags();
         window.initBugs();
+        tabInitDone.authorsPage = true;
+        tabInitDone.tagsPage    = true;
+        tabInitDone.bugsPage    = true;
       }, 0);
     };
     reader.readAsText(file);
   }
 
-  // Tab switching — also init on demand in case setTimeout(0) hasn't fired yet
+  // Tab switching — init on demand if setTimeout(0) hasn’t fired yet
   const tabInits = {
     authorsPage: () => window.initAuthors && window.initAuthors(),
     tagsPage:    () => window.initTags    && window.initTags(),
@@ -253,20 +256,12 @@
       tab.classList.add('active');
       const pageId = tab.dataset.tab;
       document.getElementById(pageId).classList.add('active');
-      // If REPORT is loaded but this tab hasn't been inited yet, do it now
       if (window.REPORT && tabInits[pageId] && !tabInitDone[pageId]) {
         tabInits[pageId]();
         tabInitDone[pageId] = true;
       }
     });
   });
-
-  // Mark all tabs as done after the setTimeout(0) init
-  const _origLoadFile = loadFile;
-  function loadFile(file) {
-    Object.keys(tabInitDone).forEach(k => delete tabInitDone[k]);
-    _origLoadFile(file);
-  }
 </script>
 </body>
 </html>
