@@ -180,19 +180,6 @@ body (flex column, 100vh, overflow hidden)
 
 ---
 
-## 🐍 Optional: Python Pipeline
-
-A `build_dashboard.py` script is included for generating a static dashboard from a report file using **BeautifulSoup**, **Pandas**, and **Plotly**.
-
-```bash
-pip install beautifulsoup4 pandas plotly jinja2
-python build_dashboard.py
-```
-
-Output is written to `output/index.html`.
-
----
-
 ## 🌐 Browser Support
 
 | Browser | Supported |
@@ -202,6 +189,10 @@ Output is written to `output/index.html`.
 | Edge    | ✅ |
 | Safari  | ✅ |
 
+---
+Sample Images
+<img width="1915" height="940" alt="image" src="https://github.com/user-attachments/assets/9786ad5b-cb4e-41a4-b746-ba9ca995780e" />
+<img width="1925" height="937" alt="image" src="https://github.com/user-attachments/assets/89d88812-b53d-453e-8854-be9b378d6273" />
 ---
 
 ## 📄 License
