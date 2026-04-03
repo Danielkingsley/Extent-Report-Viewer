@@ -24,6 +24,7 @@
   }
 
   window.initBugs = function () {
+    if (allBugs.length > 0) return; // already initialised
     const { tests } = window.REPORT;
     allBugs = [];
     tests.forEach(t => {
