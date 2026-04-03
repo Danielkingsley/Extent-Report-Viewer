@@ -5,22 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Extent Report Viewer</title>
 <link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/jszip.min.js"></script>
 </head>
 <body>
 
 <!-- ══════════════════════════════════════════ UPLOAD ══ -->
 <div id="uploadScreen">
   <h1>📊 Extent Report Viewer</h1>
-  <p>Upload any ExtentReport HTML file to view a beautiful, searchable dashboard</p>
-  <label class="drop-zone" id="dropZone" for="fileInput">
+  <p style="color:var(--muted);font-size:.9rem">Choose how to load your report</p>
+
+  <!-- Option 1: ZIP -->
+  <label class="drop-zone" id="dropZone" for="zipInput">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-        d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
+        d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 3H8l-2 4h12l-2-4z"/>
     </svg>
-    <span class="btn-upload">📂 Choose File</span>
-    <p>or drag &amp; drop your ExtentReport.html here</p>
+    <span class="btn-upload">🗂 Upload ZIP File</span>
+    <p>Zip the report folder (HTML + screenshots) and upload — works everywhere including GitHub Pages</p>
   </label>
-  <input type="file" id="fileInput" accept=".html,.htm">
+  <input type="file" id="zipInput" accept=".zip" style="display:none">
+
+  <div style="display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.8rem;width:480px;max-width:90vw">
+    <hr style="flex:1;border:none;border-top:1px solid var(--border)">
+    <span>or</span>
+    <hr style="flex:1;border:none;border-top:1px solid var(--border)">
+  </div>
+
+  <!-- Option 2: Folder -->
+  <label class="btn-upload" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.85rem;cursor:pointer" for="folderInput">
+    📂 Select Report Folder
+    <span style="font-weight:400;font-size:.75rem;color:var(--muted)"> (HTML + screenshots auto-detected)</span>
+  </label>
+  <input type="file" id="folderInput" webkitdirectory multiple style="display:none">
+
+  <!-- Option 3: HTML only -->
+  <label class="btn-upload" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.82rem;cursor:pointer" for="fileInput">
+    📄 Select HTML File Only
+    <span style="font-weight:400;font-size:.75rem"> (screenshots optional later)</span>
+  </label>
+  <input type="file" id="fileInput" accept=".html,.htm" style="display:none">
+
+  <span id="screenshotStatus" style="font-size:.75rem;color:var(--muted);min-height:1.2em"></span>
+  <!-- hidden: topbar add-screenshots later -->
+  <input type="file" id="screenshotInput" webkitdirectory multiple accept="image/*" style="display:none">
 </div>
 
 <!-- ══════════════════════════════════════════ APP SHELL ══ -->
@@ -33,6 +60,7 @@
       <span class="topbar-meta" id="runMeta"></span>
       <div class="topbar-spacer"></div>
       <button class="btn-change" id="btnChange">↩ Load Another File</button>
+      <button class="btn-change" id="btnAddScreenshots" style="display:none">🖼 Add Screenshots</button>
     </div>
     <div class="nav-tabs">
       <div class="nav-tab active" data-tab="testsPage">🧪 Tests</div>
@@ -200,48 +228,174 @@
 
 </div><!-- /appShell -->
 
+<!-- Lightbox overlay -->
+<div id="screenshotOverlay">
+  <span class="close-btn" id="overlayClose">&times;</span>
+  <img id="overlayImg" src="" alt="screenshot">
+</div>
+
 <script src="assets/js/parser.js"></script>
 <script src="assets/js/dashboard.js"></script>
 <script src="assets/js/authors.js"></script>
 <script src="assets/js/tags.js"></script>
 <script src="assets/js/bugs.js"></script>
 <script>
-  const uploadScreen = document.getElementById('uploadScreen');
-  const appShell     = document.getElementById('appShell');
-  const fileInput    = document.getElementById('fileInput');
-  const dropZone     = document.getElementById('dropZone');
-  const btnChange    = document.getElementById('btnChange');
-  const runMeta      = document.getElementById('runMeta');
+  const uploadScreen      = document.getElementById('uploadScreen');
+  const appShell          = document.getElementById('appShell');
+  const zipInput          = document.getElementById('zipInput');
+  const folderInput       = document.getElementById('folderInput');
+  const fileInput         = document.getElementById('fileInput');
+  const dropZone          = document.getElementById('dropZone');
+  const btnChange         = document.getElementById('btnChange');
+  const btnAddScreenshots = document.getElementById('btnAddScreenshots');
+  const screenshotInput   = document.getElementById('screenshotInput');
+  const screenshotStatus  = document.getElementById('screenshotStatus');
+  const runMeta           = document.getElementById('runMeta');
+  const overlay           = document.getElementById('screenshotOverlay');
+  const overlayImg        = document.getElementById('overlayImg');
+  const overlayClose      = document.getElementById('overlayClose');
 
-  fileInput.addEventListener('change', () => fileInput.files[0] && loadFile(fileInput.files[0]));
+  window.SCREENSHOTS = {};
+
+  function setStatus(msg) { if (screenshotStatus) screenshotStatus.textContent = msg; }
+
+  function registerImages(files) {
+    // files: array of {name, blob|url} or File objects
+    Object.values(window.SCREENSHOTS).forEach(u => { try { URL.revokeObjectURL(u); } catch(e){} });
+    window.SCREENSHOTS = {};
+    let count = 0;
+    files.forEach(f => {
+      const name = f.name.split('/').pop(); // strip path from zip entries
+      if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) {
+        window.SCREENSHOTS[name] = f.url || URL.createObjectURL(f);
+        count++;
+      }
+    });
+    return count;
+  }
+
+  // ── ZIP INPUT ──
+  zipInput.addEventListener('change', () => {
+    const file = zipInput.files[0];
+    if (!file) return;
+    setStatus('⏳ Reading ZIP…');
+    JSZip.loadAsync(file).then(zip => {
+      // Find HTML file
+      const htmlEntry = Object.values(zip.files).find(f =>
+        !f.dir && (f.name.endsWith('.html') || f.name.endsWith('.htm'))
+      );
+      if (!htmlEntry) { setStatus('❌ No HTML file found in ZIP.'); return; }
+
+      // Extract all images as blob URLs
+      const imgEntries = Object.values(zip.files).filter(f =>
+        !f.dir && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name)
+      );
+
+      // Extract HTML text + all images in parallel
+      const htmlPromise = htmlEntry.async('string');
+      const imgPromises = imgEntries.map(entry =>
+        entry.async('blob').then(blob => ({
+          name: entry.name,
+          url: URL.createObjectURL(blob)
+        }))
+      );
+
+      Promise.all([htmlPromise, Promise.all(imgPromises)]).then(([htmlText, imgFiles]) => {
+        Object.values(window.SCREENSHOTS).forEach(u => { try { URL.revokeObjectURL(u); } catch(e){} });
+        window.SCREENSHOTS = {};
+        imgFiles.forEach(f => { window.SCREENSHOTS[f.name.split('/').pop()] = f.url; });
+        const count = imgFiles.length;
+        setStatus(count ? `✅ ${count} screenshot${count > 1 ? 's' : ''} loaded from ZIP` : 'ℹ️ No screenshots in ZIP');
+        processReport(htmlText, htmlEntry.name.split('/').pop());
+      });
+    }).catch(() => setStatus('❌ Failed to read ZIP. Make sure it is a valid ZIP file.'));
+  });
+
+  // ── FOLDER INPUT ──
+  folderInput.addEventListener('change', () => {
+    const files = Array.from(folderInput.files);
+    const htmlFile = files.find(f => f.name.endsWith('.html') || f.name.endsWith('.htm'));
+    if (!htmlFile) { setStatus('❌ No HTML file found in folder.'); return; }
+    const count = registerImages(files);
+    setStatus(count ? `✅ ${count} screenshot${count > 1 ? 's' : ''} found automatically` : 'ℹ️ No screenshots in folder');
+    loadFile(htmlFile);
+  });
+
+  // ── HTML FILE ONLY ──
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+  // ── DRAG & DROP (zip or html) ──
   dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]); });
-  btnChange.addEventListener('click', () => { uploadScreen.style.display = 'flex'; appShell.style.display = 'none'; fileInput.value = ''; });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    if (f.name.endsWith('.zip')) {
+      // Simulate zip input change
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      zipInput.files = dt.files;
+      zipInput.dispatchEvent(new Event('change'));
+    } else {
+      loadFile(f);
+    }
+  });
 
-  function loadFile(file) {
-    // Reset tab init state for fresh load
+  // ── TOPBAR: add screenshots after load ──
+  screenshotInput.addEventListener('change', () => {
+    const count = registerImages(Array.from(screenshotInput.files));
+    setStatus(count ? `✅ ${count} screenshot${count > 1 ? 's' : ''} loaded` : 'ℹ️ No images found');
+  });
+  btnAddScreenshots.addEventListener('click', () => screenshotInput.click());
+
+  // ── LIGHTBOX ──
+  window.openScreenshot = src => { overlayImg.src = src; overlay.classList.add('open'); };
+  overlayClose.addEventListener('click', () => overlay.classList.remove('open'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+
+  // ── RESET ──
+  btnChange.addEventListener('click', () => {
+    uploadScreen.style.display = 'flex';
+    appShell.style.display = 'none';
+    btnAddScreenshots.style.display = 'none';
+    zipInput.value = ''; folderInput.value = ''; fileInput.value = ''; screenshotInput.value = '';
+    Object.values(window.SCREENSHOTS).forEach(u => { try { URL.revokeObjectURL(u); } catch(e){} });
+    window.SCREENSHOTS = {};
+    setStatus('');
     Object.keys(tabInitDone).forEach(k => delete tabInitDone[k]);
+    window.REPORT = null;
+  });
+
+  // ── LOAD FILE (HTML File object) ──
+  function loadFile(file) {
     const reader = new FileReader();
-    reader.onload = e => {
-      const report = window.parseReport(e.target.result, file.name);
-      runMeta.textContent = report.meta;
-      uploadScreen.style.display = 'none';
-      appShell.style.display = 'flex';
-      window.initDashboard();
-      setTimeout(() => {
-        window.initAuthors();
-        window.initTags();
-        window.initBugs();
-        tabInitDone.authorsPage = true;
-        tabInitDone.tagsPage    = true;
-        tabInitDone.bugsPage    = true;
-      }, 0);
-    };
+    reader.onload = e => processReport(e.target.result, file.name);
     reader.readAsText(file);
   }
 
-  // Tab switching — init on demand if setTimeout(0) hasn’t fired yet
+  // ── PROCESS REPORT (html string + filename) ──
+  function processReport(htmlText, filename) {
+    Object.keys(tabInitDone).forEach(k => delete tabInitDone[k]);
+    const report = window.parseReport(htmlText, filename);
+    runMeta.textContent = report.meta;
+    uploadScreen.style.display = 'none';
+    appShell.style.display = 'flex';
+    btnAddScreenshots.style.display = 'inline-block';
+    window.initDashboard();
+    setTimeout(() => {
+      window.initAuthors();
+      window.initTags();
+      window.initBugs();
+      tabInitDone.authorsPage = true;
+      tabInitDone.tagsPage    = true;
+      tabInitDone.bugsPage    = true;
+    }, 0);
+  }
+
+  // ── TAB SWITCHING ──
   const tabInits = {
     authorsPage: () => window.initAuthors && window.initAuthors(),
     tagsPage:    () => window.initTags    && window.initTags(),
